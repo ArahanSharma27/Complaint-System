@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Dashboard</title>
+</head>
+<body>
+
+<h2>All Complaints</h2>
+
+<h2>All Complaints</h2>
+
+<table border="1">
+    <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Brand</th>
+        <th>Dealership</th>
+        <th>Status</th>
+        <th>Priority</th>
+        <th>Timestamp</th>
+    </tr>
+
+    {% for complaint in complaints %}
+    <tr>
+        <td>{{ complaint[0] }}</td>
+        <td>{{ complaint[1] }}</td>
+        <td>{{ complaint[6] }}</td>
+        <td>{{ complaint[7] }}</td>
+        <td>{{ complaint[9] }}</td>
+        <td>{{ complaint[10] }}</td>
+        <td>{{ complaint[11] }}</td>
+    </tr>
+    {% endfor %}
+
+</table>
+
+</body>
+</html>

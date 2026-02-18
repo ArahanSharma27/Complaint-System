@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Complaint Management System</title>
+
+    <style>
+        .main-title {
+    text-align: center;
+    font-size: 30px;
+    margin-bottom: 40px;
+    position: relative;
+    display: inline-block;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.main-title::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -8px;
+    width: 100%;
+    height: 4px;
+    background-color: #2c7be5;
+}
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f8;
+        }
+
+        .container {
+            width: 800px;
+            margin: 40px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+        }
+
+        h3 {
+            font-size: 24px;
+            margin-top: 35px;
+            margin-bottom: 20px;
+            position: relative;
+            display: inline-block;
+        }
+
+        h3::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            bottom: -6px;
+            width: 100%;
+            height: 3px;
+            background-color: #ddd;
+        }
+
+        label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #2c7be5;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #1a5fcc;
+        }
+
+        /* Brand Styling */
+        .brand-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .brand-card {
+            border: 2px solid #ddd;
+            border-radius: 14px;
+            cursor: pointer;
+            width: 23%;
+            height: 130px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.25s ease;
+            background-color: white;
+        }
+
+        .brand-card img {
+            max-width: 90px;
+            max-height: 70px;
+            object-fit: contain;
+        }
+
+        .brand-card input {
+            display: none;
+        }
+
+        .brand-card:hover {
+            border-color: #2c7be5;
+            transform: translateY(-4px);
+        }
+
+        .brand-card:has(input:checked) {
+            border: 2px solid #2c7be5;
+            box-shadow: 0 0 12px rgba(44, 123, 229, 0.4);
+        }
+
+    </style>
+
+    <script>
+        const dealerships = {
+            "BMW": ["Faridabad", "Moti Nagar", "Noida"],
+            "HONDA": ["Gurgaon", "Moti Nagar", "Peeragarhi"],
+            "MG": ["Gurgaon", "Jahangirpuri", "Kirti Nagar", "Sonepat"],
+            "ŠKODA": ["Gurgaon", "Jahangirpuri", "Sonepat"]
+        };
+
+        function updateDealerships() {
+
+            let brand = document.querySelector('input[name="brand"]:checked');
+            let dealershipSelect = document.getElementById("dealership");
+
+            dealershipSelect.innerHTML = "";
+
+            if (brand && brand.value in dealerships) {
+
+                let defaultOption = document.createElement("option");
+                defaultOption.value = "";
+                defaultOption.text = "-- Select Dealership --";
+                defaultOption.disabled = true;
+                defaultOption.selected = true;
+                dealershipSelect.appendChild(defaultOption);
+
+                dealerships[brand.value].forEach(function(dealer) {
+                    let option = document.createElement("option");
+                    option.value = dealer;
+                    option.text = dealer;
+                    dealershipSelect.appendChild(option);
+                });
+
+            }
+        }
+    </script>
+</head>
+
+<body>
+
+<div class="container">
+    <h2 class="main-title">Complaint Registration Form</h2>
+
+
+    <form action="/submit" method="POST">
+
+        <h3>Customer Information</h3>
+
+        <label>Name</label>
+        <input type="text" name="name" required>
+
+        <label>Email</label>
+        <input type="email" name="email" required>
+
+        <label>Phone</label>
+        <input type="text" name="phone" required>
+
+        <h3>Vehicle Information</h3>
+
+        <label>Registration Number</label>
+        <input type="text" name="registration" required>
+
+        <label>Car Number</label>
+        <input type="text" name="car_no" required>
+
+        <h3>Brand & Dealership</h3>
+
+        <div class="brand-container">
+
+            <label class="brand-card">
+                <input type="radio" name="brand" value="BMW" onclick="updateDealerships()" required>
+                <img src="{{ url_for('static', filename='logos/bmw.png') }}" alt="BMW">
+            </label>
+
+            <label class="brand-card">
+                <input type="radio" name="brand" value="HONDA" onclick="updateDealerships()">
+                <img src="{{ url_for('static', filename='logos/honda.png') }}" alt="HONDA">
+            </label>
+
+            <label class="brand-card">
+                <input type="radio" name="brand" value="MG" onclick="updateDealerships()">
+                <img src="{{ url_for('static', filename='logos/mg.png') }}" alt="MG">
+            </label>
+
+            <label class="brand-card">
+                <input type="radio" name="brand" value="ŠKODA" onclick="updateDealerships()">
+                <img src="{{ url_for('static', filename='logos/skoda.png') }}" alt="ŠKODA">
+            </label>
+
+        </div>
+
+        <label>Dealership</label>
+        <select name="dealership" id="dealership" required>
+            <option value="" disabled selected>-- Select Brand First --</option>
+        </select>
+
+        <h3>Priority</h3>
+
+        <select name="priority" required>
+            <option value="" disabled selected>-- Select Priority --</option>
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+            <option value="Critical">Critical</option>
+        </select>
+
+        <h3>Complaint Details</h3>
+
+        <label>Describe the Issue</label>
+        <textarea name="query" rows="5" required></textarea>
+
+        <button type="submit">Submit Complaint</button>
+
+    </form>
+
+</div>
+
+</body>
+</html>
+
+
