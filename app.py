@@ -13,9 +13,9 @@ app.secret_key = os.environ.get("SECRET_KEY", "fallback_secret_key")
 
 load_dotenv()
 
-
+# ---------------------------------------
 # DATABASE INITIALIZATION
-
+# ---------------------------------------
 def init_db():
     conn = sqlite3.connect("complaints.db")
     c = conn.cursor()
@@ -27,18 +27,27 @@ def init_db():
                   dealership TEXT, query TEXT,
                   status TEXT, priority TEXT, timestamp TEXT)''')
 
-    # Users table (IMPORTANT)
+    # Users table
     c.execute('''CREATE TABLE IF NOT EXISTS users
                  (username TEXT PRIMARY KEY,
                   password TEXT)''')
+
+    # 🔥 AUTO CREATE ADMIN USER
+    username = "Admin"
+    password = "Admin@2026"
+    hashed_password = generate_password_hash(password)
+
+    c.execute("INSERT OR IGNORE INTO users (username, password) VALUES (?, ?)",
+              (username, hashed_password))
 
     conn.commit()
     conn.close()
 
 init_db()
 
+# ---------------------------------------
 # LOGIN
-
+# ---------------------------------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -59,16 +68,18 @@ def login():
 
     return render_template("login.html")
 
+# ---------------------------------------
 # HOME
-
+# ---------------------------------------
 @app.route("/")
 def home():
     if "user" not in session:
         return redirect(url_for("login"))
     return render_template("form.html")
 
+# ---------------------------------------
 # SUBMIT
-
+# ---------------------------------------
 @app.route("/submit", methods=["POST"])
 def submit():
 
@@ -109,8 +120,9 @@ def submit():
                            status=status,
                            timestamp=timestamp)
 
+# ---------------------------------------
 # EMAIL FUNCTION
-
+# ---------------------------------------
 def send_email(complaint_id, name, customer_email, brand, dealership, query, priority):
 
     sender_email = os.environ.get("SENDER_EMAIL")
@@ -137,7 +149,7 @@ def send_email(complaint_id, name, customer_email, brand, dealership, query, pri
     server.starttls()
     server.login(sender_email, sender_password)
 
-    # CUSTOMER EMAIL
+    # Customer email
     msg_customer = MIMEMultipart()
     msg_customer["From"] = sender_email
     msg_customer["To"] = customer_email
@@ -146,7 +158,7 @@ def send_email(complaint_id, name, customer_email, brand, dealership, query, pri
 
     server.sendmail(sender_email, customer_email, msg_customer.as_string())
 
-    # INTERNAL EMAIL
+    # Internal email
     msg_internal = MIMEMultipart()
     msg_internal["From"] = sender_email
     msg_internal["To"] = receiver_email
@@ -167,7 +179,9 @@ def send_email(complaint_id, name, customer_email, brand, dealership, query, pri
 
     server.quit()
 
-
+# ---------------------------------------
+# RUN (RENDER FIX)
+# ---------------------------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
