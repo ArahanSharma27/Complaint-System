@@ -1,51 +1,40 @@
 from flask import Flask, render_template, request, session, redirect, url_for
+import sqlite3
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import datetime
 import os
-import json
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
-import sqlite3
+
+app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "fallback_secret_key")
 
 load_dotenv()
 
-app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY")
-
-# -------------------------
-# LOAD BRAND CONFIG
-# -------------------------
-with open("brand_config.json") as f:
-    BRAND_CONFIG = json.load(f)
-
-# -------------------------
-# DATABASE
-# -------------------------
+# ---------------------------------------
+# DATABASE INITIALIZATION
+# ---------------------------------------
 def init_db():
     conn = sqlite3.connect("complaints.db")
     c = conn.cursor()
 
+    # ❌ car_no REMOVED
     c.execute('''CREATE TABLE IF NOT EXISTS complaints
                  (id TEXT, name TEXT, email TEXT, phone TEXT,
                   registration TEXT, brand TEXT,
                   dealership TEXT, query TEXT,
                   status TEXT, priority TEXT, timestamp TEXT)''')
 
-    c.execute('''CREATE TABLE IF NOT EXISTS users
-                 (username TEXT PRIMARY KEY,
-                  password TEXT,
-                  role TEXT)''')
-
     conn.commit()
     conn.close()
 
 init_db()
 
-# -------------------------
+# ---------------------------------------
 # LOGIN
-# -------------------------
+# ---------------------------------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -54,7 +43,7 @@ def login():
 
         conn = sqlite3.connect("complaints.db")
         c = conn.cursor()
-        c.execute("SELECT password, role FROM users WHERE username=?", (username,))
+        c.execute("SELECT password FROM users WHERE username=?", (username,))
         user = c.fetchone()
         conn.close()
 
@@ -66,30 +55,21 @@ def login():
 
     return render_template("login.html")
 
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect(url_for("login"))
-
-# -------------------------
+# ---------------------------------------
 # HOME
-# -------------------------
+# ---------------------------------------
 @app.route("/")
 def home():
     if "user" not in session:
         return redirect(url_for("login"))
     return render_template("form.html")
 
-# -------------------------
+# ---------------------------------------
 # SUBMIT
-# -------------------------
+# ---------------------------------------
 @app.route("/submit", methods=["POST"])
 def submit():
 
-    if "user" not in session:
-        return redirect(url_for("login"))
-
-    priority = request.form["priority"]
     today = datetime.datetime.now().strftime("%Y%m%d")
 
     conn = sqlite3.connect("complaints.db")
@@ -109,12 +89,14 @@ def submit():
     brand = request.form["brand"]
     dealership = request.form["dealership"]
     query = request.form["query"]
+    priority = request.form["priority"]
 
+    # ❌ car_no REMOVED
     c.execute("INSERT INTO complaints VALUES (?,?,?,?,?,?,?,?,?,?,?)",
               (complaint_id, name, email, phone,
                registration, brand,
-               dealership, query,
-               status, priority, timestamp))
+               dealership, query, status,
+               priority, timestamp))
 
     conn.commit()
     conn.close()
@@ -126,56 +108,89 @@ def submit():
                            status=status,
                            timestamp=timestamp)
 
-# -------------------------
-# EMAIL FUNCTION
-# -------------------------
+# ---------------------------------------
+# EMAIL FUNCTION (ONE EMAIL PER BRAND)
+# ---------------------------------------
 def send_email(complaint_id, name, customer_email, brand, dealership, query, priority):
 
-    if brand not in BRAND_CONFIG:
+    sender_email = os.environ.get("SENDER_EMAIL")
+    sender_password = os.environ.get("SENDER_PASSWORD")
+
+    if not sender_email or not sender_password:
+        print("Email not configured")
         return
 
-    brand_data = BRAND_CONFIG[brand]
+    # 🔥 ONE EMAIL PER BRAND
+    brand_emails = {
+        "BMW": "bmw_email_here",
+        "HONDA": "honda_email_here",
+        "MG": "mg_email_here",
+        "ŠKODA": "skoda_email_here"
+    }
 
-    sender_email = brand_data["sender_email"]
-    sender_password = brand_data["sender_password"]
+    receiver_email = brand_emails.get(brand)
 
-    if dealership not in brand_data["dealerships"]:
+    if not receiver_email:
+        print("No email for this brand")
         return
-
-    dept_email = brand_data["dealerships"][dealership]["dept_email"]
-    service_email = brand_data["dealerships"][dealership]["service_email"]
 
     server = smtplib.SMTP("smtp.office365.com", 587)
     server.starttls()
     server.login(sender_email, sender_password)
 
-    subject = f"[{priority.upper()}] Complaint - {complaint_id}"
+    # CUSTOMER EMAIL
+    customer_body = f"""
+Dear {name},
 
-    body = f"""
+Your complaint has been registered.
+
 Complaint ID: {complaint_id}
-Customer: {name}
 Brand: {brand}
 Dealership: {dealership}
-Priority: {priority}
 
-Issue:
-{query}
+Regards,
+Service Team
 """
 
-    msg = MIMEMultipart()
-    msg["From"] = sender_email
-    msg["To"] = f"{customer_email}, {dept_email}, {service_email}"
-    msg["Subject"] = subject
-    msg.attach(MIMEText(body, "plain"))
+    msg_customer = MIMEMultipart()
+    msg_customer["From"] = sender_email
+    msg_customer["To"] = customer_email
+    msg_customer["Subject"] = f"Complaint - {complaint_id}"
+    msg_customer.attach(MIMEText(customer_body, "plain"))
 
-    server.sendmail(sender_email,
-                    [customer_email, dept_email, service_email],
-                    msg.as_string())
+    server.sendmail(sender_email, customer_email, msg_customer.as_string())
+
+    # INTERNAL EMAIL
+    internal_body = f"""
+<html>
+<body>
+<h2>Complaint Form</h2>
+
+<table border="1" cellpadding="8">
+<tr><td><b>ID</b></td><td>{complaint_id}</td></tr>
+<tr><td><b>Name</b></td><td>{name}</td></tr>
+<tr><td><b>Brand</b></td><td>{brand}</td></tr>
+<tr><td><b>Dealership</b></td><td>{dealership}</td></tr>
+<tr><td><b>Priority</b></td><td>{priority}</td></tr>
+<tr><td><b>Issue</b></td><td>{query}</td></tr>
+</table>
+
+</body>
+</html>
+"""
+
+    msg_internal = MIMEMultipart()
+    msg_internal["From"] = sender_email
+    msg_internal["To"] = receiver_email
+    msg_internal["Subject"] = f"[{priority}] Complaint - {complaint_id}"
+    msg_internal.attach(MIMEText(internal_body, "html"))
+
+    server.sendmail(sender_email, receiver_email, msg_internal.as_string())
 
     server.quit()
 
-# -------------------------
+# ---------------------------------------
 # RUN
-# -------------------------
+# ---------------------------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app.run()
