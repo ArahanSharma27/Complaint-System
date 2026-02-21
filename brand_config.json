@@ -1,0 +1,81 @@
+{
+  "BMW": {
+    "sender_email": "abc",
+    "sender_password": "bmw_password_here",
+    "dealerships": {
+      "Faridabad": {
+        "dept_email": "abc",
+        "service_email": "abc"
+      },
+      "Moti Nagar": {
+        "dept_email": "abc",
+        "service_email": "abc"
+      },
+      "Noida": {
+        "dept_email": "abc",
+        "service_email": "abc"
+      }
+    }
+  },
+
+  "HONDA": {
+    "sender_email": "abc",
+    "sender_password": "honda_password_here",
+    "dealerships": {
+      "Gurgaon": {
+        "dept_email": "abc",
+        "service_email": "abc"
+      },
+      "Moti Nagar": {
+        "dept_email": "abc",
+        "service_email": "abc"
+      },
+      "Peeragarhi": {
+        "dept_email": "abc",
+        "service_email": "abc"
+      }
+    }
+  },
+
+  "MG": {
+    "sender_email": "customercomplaint@mgcars.co.in",
+    "sender_password": "Mgcars$cc%@@)@^",
+    "dealerships": {
+      "Gurgaon": {
+        "dept_email": "gurgaonsr.gmservice@mgdealer.co.in",
+        "service_email": "abc"
+      },
+      "Jahangirpuri": {
+        "dept_email": "jahangirpuri.sm@gmdelaer.co.in",
+        "service_email": "abc"
+      },
+      "Kirti Nagar": {
+        "dept_email": "delhiwest.sm@mgdealer.co.in",
+        "service_email": "abc"
+      },
+      "Sonepat": {
+        "dept_email": "sonipat.servicemanager@mgdealer.co.in",
+        "service_email": "abc"
+      }
+    }
+  },
+
+  "ŠKODA": {
+    "sender_email": "abc",
+    "sender_password": "skoda_password_here",
+    "dealerships": {
+      "Gurgaon": {
+        "dept_email": "abc",
+        "service_email": "abc"
+      },
+      "Jahangirpuri": {
+        "dept_email": "abc",
+        "service_email": "abc"
+      },
+      "Sonepat": {
+        "dept_email": "abc",
+        "service_email": "abc"
+      }
+    }
+  }
+}
