@@ -20,7 +20,7 @@ def init_db():
     conn = sqlite3.connect("complaints.db")
     c = conn.cursor()
 
-    # ❌ car_no REMOVED
+
     c.execute('''CREATE TABLE IF NOT EXISTS complaints
                  (id TEXT, name TEXT, email TEXT, phone TEXT,
                   registration TEXT, brand TEXT,
@@ -91,7 +91,7 @@ def submit():
     query = request.form["query"]
     priority = request.form["priority"]
 
-    # ❌ car_no REMOVED
+    
     c.execute("INSERT INTO complaints VALUES (?,?,?,?,?,?,?,?,?,?,?)",
               (complaint_id, name, email, phone,
                registration, brand,
@@ -192,8 +192,7 @@ Service Team
 # ---------------------------------------
 # RUN
 # ---------------------------------------
-if __name__ == "__main__":
-   app.run()
+  import os
 
 port = int(os.environ.get("PORT", 5000))
 app.run(host="0.0.0.0", port=port)
