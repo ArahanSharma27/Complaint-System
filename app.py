@@ -13,28 +13,32 @@ app.secret_key = os.environ.get("SECRET_KEY", "fallback_secret_key")
 
 load_dotenv()
 
-# ---------------------------------------
+
 # DATABASE INITIALIZATION
-# ---------------------------------------
+
 def init_db():
     conn = sqlite3.connect("complaints.db")
     c = conn.cursor()
 
-
+    # Complaints table
     c.execute('''CREATE TABLE IF NOT EXISTS complaints
                  (id TEXT, name TEXT, email TEXT, phone TEXT,
                   registration TEXT, brand TEXT,
                   dealership TEXT, query TEXT,
                   status TEXT, priority TEXT, timestamp TEXT)''')
 
+    # Users table (IMPORTANT)
+    c.execute('''CREATE TABLE IF NOT EXISTS users
+                 (username TEXT PRIMARY KEY,
+                  password TEXT)''')
+
     conn.commit()
     conn.close()
 
 init_db()
 
-# ---------------------------------------
 # LOGIN
-# ---------------------------------------
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -55,18 +59,16 @@ def login():
 
     return render_template("login.html")
 
-# ---------------------------------------
 # HOME
-# ---------------------------------------
+
 @app.route("/")
 def home():
     if "user" not in session:
         return redirect(url_for("login"))
     return render_template("form.html")
 
-# ---------------------------------------
 # SUBMIT
-# ---------------------------------------
+
 @app.route("/submit", methods=["POST"])
 def submit():
 
@@ -91,7 +93,6 @@ def submit():
     query = request.form["query"]
     priority = request.form["priority"]
 
-    
     c.execute("INSERT INTO complaints VALUES (?,?,?,?,?,?,?,?,?,?,?)",
               (complaint_id, name, email, phone,
                registration, brand,
@@ -108,9 +109,8 @@ def submit():
                            status=status,
                            timestamp=timestamp)
 
-# ---------------------------------------
-# EMAIL FUNCTION (ONE EMAIL PER BRAND)
-# ---------------------------------------
+# EMAIL FUNCTION
+
 def send_email(complaint_id, name, customer_email, brand, dealership, query, priority):
 
     sender_email = os.environ.get("SENDER_EMAIL")
@@ -120,7 +120,6 @@ def send_email(complaint_id, name, customer_email, brand, dealership, query, pri
         print("Email not configured")
         return
 
-    # 🔥 ONE EMAIL PER BRAND
     brand_emails = {
         "BMW": "bmw_email_here",
         "HONDA": "honda_email_here",
@@ -139,60 +138,36 @@ def send_email(complaint_id, name, customer_email, brand, dealership, query, pri
     server.login(sender_email, sender_password)
 
     # CUSTOMER EMAIL
-    customer_body = f"""
-Dear {name},
-
-Your complaint has been registered.
-
-Complaint ID: {complaint_id}
-Brand: {brand}
-Dealership: {dealership}
-
-Regards,
-Service Team
-"""
-
     msg_customer = MIMEMultipart()
     msg_customer["From"] = sender_email
     msg_customer["To"] = customer_email
     msg_customer["Subject"] = f"Complaint - {complaint_id}"
-    msg_customer.attach(MIMEText(customer_body, "plain"))
+    msg_customer.attach(MIMEText(f"Complaint ID: {complaint_id}", "plain"))
 
     server.sendmail(sender_email, customer_email, msg_customer.as_string())
 
     # INTERNAL EMAIL
-    internal_body = f"""
-<html>
-<body>
-<h2>Complaint Form</h2>
-
-<table border="1" cellpadding="8">
-<tr><td><b>ID</b></td><td>{complaint_id}</td></tr>
-<tr><td><b>Name</b></td><td>{name}</td></tr>
-<tr><td><b>Brand</b></td><td>{brand}</td></tr>
-<tr><td><b>Dealership</b></td><td>{dealership}</td></tr>
-<tr><td><b>Priority</b></td><td>{priority}</td></tr>
-<tr><td><b>Issue</b></td><td>{query}</td></tr>
-</table>
-
-</body>
-</html>
-"""
-
     msg_internal = MIMEMultipart()
     msg_internal["From"] = sender_email
     msg_internal["To"] = receiver_email
     msg_internal["Subject"] = f"[{priority}] Complaint - {complaint_id}"
-    msg_internal.attach(MIMEText(internal_body, "html"))
+
+    html = f"""
+    <h2>Complaint</h2>
+    <p><b>ID:</b> {complaint_id}</p>
+    <p><b>Name:</b> {name}</p>
+    <p><b>Brand:</b> {brand}</p>
+    <p><b>Priority:</b> {priority}</p>
+    <p><b>Issue:</b> {query}</p>
+    """
+
+    msg_internal.attach(MIMEText(html, "html"))
 
     server.sendmail(sender_email, receiver_email, msg_internal.as_string())
 
     server.quit()
 
-# ---------------------------------------
-# RUN
-# ---------------------------------------
-  import os
 
-port = int(os.environ.get("PORT", 5000))
-app.run(host="0.0.0.0", port=port)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
