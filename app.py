@@ -20,25 +20,23 @@ def init_db():
     conn = sqlite3.connect("complaints.db")
     c = conn.cursor()
 
-    # Complaints table
     c.execute('''CREATE TABLE IF NOT EXISTS complaints
                  (id TEXT, name TEXT, email TEXT, phone TEXT,
                   registration TEXT, brand TEXT,
                   dealership TEXT, query TEXT,
                   status TEXT, priority TEXT, timestamp TEXT)''')
 
-    # Users table
     c.execute('''CREATE TABLE IF NOT EXISTS users
                  (username TEXT PRIMARY KEY,
                   password TEXT)''')
 
-    # 🔥 AUTO CREATE ADMIN USER
+    # AUTO CREATE ADMIN
     username = "Admin"
     password = "Admin@2026"
-    hashed_password = generate_password_hash(password)
+    hashed = generate_password_hash(password)
 
     c.execute("INSERT OR IGNORE INTO users (username, password) VALUES (?, ?)",
-              (username, hashed_password))
+              (username, hashed))
 
     conn.commit()
     conn.close()
@@ -82,102 +80,116 @@ def home():
 # ---------------------------------------
 @app.route("/submit", methods=["POST"])
 def submit():
+    try:
+        today = datetime.datetime.now().strftime("%Y%m%d")
 
-    today = datetime.datetime.now().strftime("%Y%m%d")
+        conn = sqlite3.connect("complaints.db")
+        c = conn.cursor()
 
-    conn = sqlite3.connect("complaints.db")
-    c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM complaints WHERE id LIKE ?", (today + "%",))
+        count = c.fetchone()[0] + 1
+        complaint_id = f"{today}-{str(count).zfill(3)}"
 
-    c.execute("SELECT COUNT(*) FROM complaints WHERE id LIKE ?", (today + "%",))
-    count = c.fetchone()[0] + 1
-    complaint_id = f"{today}-{str(count).zfill(3)}"
+        status = "Open"
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    status = "Open"
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        name = request.form["name"]
+        email = request.form["email"]
+        phone = request.form["phone"]
+        registration = request.form["registration"]
+        brand = request.form["brand"]
+        dealership = request.form["dealership"]
+        query = request.form["query"]
+        priority = request.form["priority"]
 
-    name = request.form["name"]
-    email = request.form["email"]
-    phone = request.form["phone"]
-    registration = request.form["registration"]
-    brand = request.form["brand"]
-    dealership = request.form["dealership"]
-    query = request.form["query"]
-    priority = request.form["priority"]
+        print("FORM DATA:", request.form)
 
-    c.execute("INSERT INTO complaints VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-              (complaint_id, name, email, phone,
-               registration, brand,
-               dealership, query, status,
-               priority, timestamp))
+        c.execute("INSERT INTO complaints VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                  (complaint_id, name, email, phone,
+                   registration, brand,
+                   dealership, query, status,
+                   priority, timestamp))
 
-    conn.commit()
-    conn.close()
+        conn.commit()
+        conn.close()
 
-    send_email(complaint_id, name, email, brand, dealership, query, priority)
+        send_email(complaint_id, name, email, brand, dealership, query, priority)
 
-    return render_template("success.html",
-                           complaint_id=complaint_id,
-                           status=status,
-                           timestamp=timestamp)
+        return render_template("success.html",
+                               complaint_id=complaint_id,
+                               status=status,
+                               timestamp=timestamp)
+
+    except Exception as e:
+        print("❌ ERROR:", e)
+        return "Error: " + str(e)
 
 # ---------------------------------------
 # EMAIL FUNCTION
 # ---------------------------------------
 def send_email(complaint_id, name, customer_email, brand, dealership, query, priority):
 
-    sender_email = os.environ.get("SENDER_EMAIL")
-    sender_password = os.environ.get("SENDER_PASSWORD")
+    try:
+        sender_email = os.environ.get("SENDER_EMAIL")
+        sender_password = os.environ.get("SENDER_PASSWORD")
 
-    if not sender_email or not sender_password:
-        print("Email not configured")
-        return
+        if not sender_email or not sender_password:
+            print("❌ Missing email credentials")
+            return
 
-    brand_emails = {
-        "BMW": "bmw_email_here",
-        "HONDA": "honda_email_here",
-        "MG": "mg_email_here",
-        "ŠKODA": "skoda_email_here"
-    }
+        # MAKE BRAND SAFE
+        brand = brand.upper()
 
-    receiver_email = brand_emails.get(brand)
+        brand_emails = {
+            "BMW": "your_email@gmail.com",
+            "HONDA": "your_email@gmail.com",
+            "MG": "your_email@gmail.com",
+            "SKODA": "your_email@gmail.com"
+        }
 
-    if not receiver_email:
-        print("No email for this brand")
-        return
+        receiver_email = brand_emails.get(brand)
 
-    server = smtplib.SMTP("smtp.office365.com", 587)
-    server.starttls()
-    server.login(sender_email, sender_password)
+        if not receiver_email:
+            print("❌ BRAND ERROR:", brand)
+            return
 
-    # Customer email
-    msg_customer = MIMEMultipart()
-    msg_customer["From"] = sender_email
-    msg_customer["To"] = customer_email
-    msg_customer["Subject"] = f"Complaint - {complaint_id}"
-    msg_customer.attach(MIMEText(f"Complaint ID: {complaint_id}", "plain"))
+        server = smtplib.SMTP("smtp.office365.com", 587)
+        server.starttls()
+        server.login(sender_email, sender_password)
 
-    server.sendmail(sender_email, customer_email, msg_customer.as_string())
+        # CUSTOMER MAIL
+        msg1 = MIMEMultipart()
+        msg1["From"] = sender_email
+        msg1["To"] = customer_email
+        msg1["Subject"] = f"Complaint - {complaint_id}"
+        msg1.attach(MIMEText(f"Complaint ID: {complaint_id}", "plain"))
 
-    # Internal email
-    msg_internal = MIMEMultipart()
-    msg_internal["From"] = sender_email
-    msg_internal["To"] = receiver_email
-    msg_internal["Subject"] = f"[{priority}] Complaint - {complaint_id}"
+        server.sendmail(sender_email, customer_email, msg1.as_string())
 
-    html = f"""
-    <h2>Complaint</h2>
-    <p><b>ID:</b> {complaint_id}</p>
-    <p><b>Name:</b> {name}</p>
-    <p><b>Brand:</b> {brand}</p>
-    <p><b>Priority:</b> {priority}</p>
-    <p><b>Issue:</b> {query}</p>
-    """
+        # INTERNAL MAIL
+        msg2 = MIMEMultipart()
+        msg2["From"] = sender_email
+        msg2["To"] = receiver_email
+        msg2["Subject"] = f"[{priority}] Complaint - {complaint_id}"
 
-    msg_internal.attach(MIMEText(html, "html"))
+        html = f"""
+        <h2>Complaint</h2>
+        <p><b>ID:</b> {complaint_id}</p>
+        <p><b>Name:</b> {name}</p>
+        <p><b>Brand:</b> {brand}</p>
+        <p><b>Dealership:</b> {dealership}</p>
+        <p><b>Priority:</b> {priority}</p>
+        <p><b>Issue:</b> {query}</p>
+        """
 
-    server.sendmail(sender_email, receiver_email, msg_internal.as_string())
+        msg2.attach(MIMEText(html, "html"))
 
-    server.quit()
+        server.sendmail(sender_email, receiver_email, msg2.as_string())
+
+        server.quit()
+
+    except Exception as e:
+        print("❌ EMAIL ERROR:", e)
 
 # ---------------------------------------
 # RUN (RENDER FIX)
