@@ -13,9 +13,7 @@ app.secret_key = os.environ.get("SECRET_KEY", "fallback_secret_key")
 
 load_dotenv()
 
-# ---------------------------------------
 # DATABASE INITIALIZATION
-# ---------------------------------------
 def init_db():
     conn = sqlite3.connect("complaints.db")
     c = conn.cursor()
@@ -43,9 +41,8 @@ def init_db():
 
 init_db()
 
-# ---------------------------------------
 # LOGIN
-# ---------------------------------------
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -66,18 +63,16 @@ def login():
 
     return render_template("login.html")
 
-# ---------------------------------------
 # HOME
-# ---------------------------------------
 @app.route("/")
 def home():
     if "user" not in session:
         return redirect(url_for("login"))
     return render_template("form.html")
 
-# ---------------------------------------
+
 # SUBMIT
-# ---------------------------------------
+
 @app.route("/submit", methods=["POST"])
 def submit():
     try:
@@ -124,9 +119,8 @@ def submit():
         print("❌ ERROR:", e)
         return "Error: " + str(e)
 
-# ---------------------------------------
 # EMAIL FUNCTION
-# ---------------------------------------
+
 def send_email(complaint_id, name, customer_email, brand, dealership, query, priority):
 
     try:
@@ -191,9 +185,8 @@ def send_email(complaint_id, name, customer_email, brand, dealership, query, pri
     except Exception as e:
         print("❌ EMAIL ERROR:", e)
 
-# ---------------------------------------
-# RUN (RENDER FIX)
-# ---------------------------------------
+# RUN
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
