@@ -121,70 +121,61 @@ def submit():
 
 # EMAIL FUNCTION
 
+import json
+
+with open("brand_config.json") as f:
+    BRAND_CONFIG = json.load(f)
+
+
 def send_email(complaint_id, name, customer_email, brand, dealership, query, priority):
-
     try:
-        sender_email = os.environ.get("SENDER_EMAIL")
-        sender_password = os.environ.get("SENDER_PASSWORD")
-
-        if not sender_email or not sender_password:
-            print("❌ Missing email credentials")
-            return
-
-        # MAKE BRAND SAFE
         brand = brand.upper()
 
-        brand_emails = {
-            "BMW": "your_email@gmail.com",
-            "HONDA": "your_email@gmail.com",
-            "MG": "your_email@gmail.com",
-            "SKODA": "your_email@gmail.com"
-        }
-
-        receiver_email = brand_emails.get(brand)
-
-        if not receiver_email:
-            print("❌ BRAND ERROR:", brand)
+        if brand not in BRAND_CONFIG:
+            print("❌ Brand not found:", brand)
             return
 
-        server = smtplib.SMTP("smtp.office365.com", 587)
-        server.starttls()
+        brand_data = BRAND_CONFIG[brand]
+
+        sender_email = brand_data["sender_email"]
+        sender_password = brand_data["sender_password"]
+
+        if dealership not in brand_data["dealerships"]:
+            print("❌ Dealership not found:", dealership)
+            return
+
+        dept_email = brand_data["dealerships"][dealership]["dept_email"]
+        service_email = brand_data["dealerships"][dealership]["service_email"]
+
+        recipients = [customer_email, dept_email, service_email]
+
+        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
         server.login(sender_email, sender_password)
 
-        # CUSTOMER MAIL
-        msg1 = MIMEMultipart()
-        msg1["From"] = sender_email
-        msg1["To"] = customer_email
-        msg1["Subject"] = f"Complaint - {complaint_id}"
-        msg1.attach(MIMEText(f"Complaint ID: {complaint_id}", "plain"))
+        msg = MIMEMultipart()
+        msg["From"] = sender_email
+        msg["To"] = ", ".join(recipients)
+        msg["Subject"] = f"[{priority}] Complaint - {complaint_id}"
 
-        server.sendmail(sender_email, customer_email, msg1.as_string())
+        body = f"""
+Complaint ID: {complaint_id}
+Customer: {name}
+Brand: {brand}
+Dealership: {dealership}
 
-        # INTERNAL MAIL
-        msg2 = MIMEMultipart()
-        msg2["From"] = sender_email
-        msg2["To"] = receiver_email
-        msg2["Subject"] = f"[{priority}] Complaint - {complaint_id}"
+Issue:
+{query}
+"""
 
-        html = f"""
-        <h2>Complaint</h2>
-        <p><b>ID:</b> {complaint_id}</p>
-        <p><b>Name:</b> {name}</p>
-        <p><b>Brand:</b> {brand}</p>
-        <p><b>Dealership:</b> {dealership}</p>
-        <p><b>Priority:</b> {priority}</p>
-        <p><b>Issue:</b> {query}</p>
-        """
+        msg.attach(MIMEText(body, "plain"))
 
-        msg2.attach(MIMEText(html, "html"))
-
-        server.sendmail(sender_email, receiver_email, msg2.as_string())
-
+        server.sendmail(sender_email, recipients, msg.as_string())
         server.quit()
+
+        print("✅ Email sent")
 
     except Exception as e:
         print("❌ EMAIL ERROR:", e)
-
 # RUN
 
 if __name__ == "__main__":
