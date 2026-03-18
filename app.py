@@ -323,4 +323,6 @@ This is an automated email from the Complaint Management System.
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    # Only use app.run() for local development
+    # For production (gunicorn), the app object is used directly
+    app.run(host="0.0.0.0", port=port, debug=False)
