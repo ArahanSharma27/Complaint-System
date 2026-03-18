@@ -1,4 +1,12 @@
 {
+  "customer_support": {
+    "email": "customercomplaint@mgcars.co.in",
+    "password": "Mgcars$cc%@@)@^",
+    "smtp_server": "secure.emailsrvr.com",
+    "smtp_port": 465,
+    "display_name": "MG Customer Support"
+  },
+
   "BMW": {
     "sender_email": "abc",
     "sender_password": "bmw_password_here",
@@ -38,8 +46,6 @@
   },
 
   "MG": {
-    "sender_email": "customercomplaint@mgcars.co.in",
-    "sender_password": "Mgcars$cc%@@)@^",
     "dealerships": {
       "Gurgaon": {
         "dept_email": "gurgaonsr.gmservice@mgdealer.co.in",
@@ -61,8 +67,6 @@
   },
 
   "ŠKODA": {
-    "sender_email": "abc",
-    "sender_password": "skoda_password_here",
     "dealerships": {
       "Gurgaon": {
         "dept_email": "abc",

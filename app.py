@@ -8,10 +8,11 @@ import os
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
 
-app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "fallback_secret_key")
-
+# Load environment variables FIRST
 load_dotenv()
+
+app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "complaint_system_fallback_key_12345")
 
 # DATABASE INITIALIZATION
 def init_db():
@@ -59,7 +60,7 @@ def login():
             session["user"] = username
             return redirect(url_for("home"))
 
-        return "Invalid credentials"
+        return render_template("login.html", error="Invalid username or password")
 
     return render_template("login.html")
 
@@ -75,6 +76,10 @@ def home():
 
 @app.route("/submit", methods=["POST"])
 def submit():
+    # Check if user is logged in
+    if "user" not in session:
+        return redirect(url_for("login"))
+    
     try:
         today = datetime.datetime.now().strftime("%Y%m%d")
 
@@ -108,16 +113,20 @@ def submit():
         conn.commit()
         conn.close()
 
-        send_email(complaint_id, name, email, brand, dealership, query, priority)
+        email_sent = send_email(complaint_id, name, email, brand, dealership, query, priority)
+        
+        if not email_sent:
+            print(f"⚠️ WARNING: Email not sent for {brand}, but complaint {complaint_id} was saved to database")
 
         return render_template("success.html",
                                complaint_id=complaint_id,
                                status=status,
-                               timestamp=timestamp)
+                               timestamp=timestamp,
+                               email_sent=email_sent)
 
     except Exception as e:
         print("❌ ERROR:", e)
-        return "Error: " + str(e)
+        return f"Error: {str(e)}", 500
 
 # EMAIL FUNCTION
 
@@ -126,56 +135,190 @@ import json
 with open("brand_config.json") as f:
     BRAND_CONFIG = json.load(f)
 
+# Global SMTP connection (reused to avoid OTP generation)
+smtp_connection = None
+
+def get_email_server():
+    """Get or create a persistent SMTP connection for MG"""
+    global smtp_connection
+    
+    config = BRAND_CONFIG.get("customer_support")
+    if not config:
+        print("❌ No customer_support configuration found in brand_config.json")
+        return None
+    
+    email = config.get("email")
+    password = config.get("password")
+    
+    if password == "PASTE_YOUR_APP_SPECIFIC_PASSWORD_HERE":
+        print("❌ EMAIL CREDENTIALS NOT CONFIGURED. Please update brand_config.json with app-specific password")
+        return None
+    
+    try:
+        if smtp_connection is None:
+            print(f"📧 Connecting to SMTP server with {email}...")
+            smtp_server = config.get("smtp_server", "smtp.gmail.com")
+            smtp_port = config.get("smtp_port", 465)
+            
+            smtp_connection = smtplib.SMTP_SSL(smtp_server, smtp_port)
+            smtp_connection.login(email, password)
+            print(f"✅ SMTP Connection established")
+        
+        return smtp_connection
+    
+    except smtplib.SMTPAuthenticationError as e:
+        print(f"❌ SMTP AUTHENTICATION ERROR: {e}")
+        print("⚠️ Check email credentials in brand_config.json - use app-specific password from Google")
+        return None
+    except smtplib.SMTPException as e:
+        print(f"❌ SMTP ERROR: {e}")
+        return None
+    except Exception as e:
+        print(f"❌ Connection Error: {e}")
+        return None
+
 
 def send_email(complaint_id, name, customer_email, brand, dealership, query, priority):
     try:
         brand = brand.upper()
 
         if brand not in BRAND_CONFIG:
-            print("❌ Brand not found:", brand)
-            return
+            print(f"❌ Brand '{brand}' not found in configuration")
+            return False
 
         brand_data = BRAND_CONFIG[brand]
 
-        sender_email = brand_data["sender_email"]
-        sender_password = brand_data["sender_password"]
-
         if dealership not in brand_data["dealerships"]:
-            print("❌ Dealership not found:", dealership)
-            return
+            print(f"❌ Dealership '{dealership}' not found for brand '{brand}'")
+            return False
 
+        # Get service head email for the dealership
         dept_email = brand_data["dealerships"][dealership]["dept_email"]
-        service_email = brand_data["dealerships"][dealership]["service_email"]
+        
+        # Only send if this is MG brand (we have credentials for it)
+        if brand != "MG":
+            print(f"⚠️ Email credentials not configured for {brand}. Complaint saved but email not sent.")
+            return False
 
-        recipients = [customer_email, dept_email, service_email]
+        print(f"📧 Preparing to send emails...")
 
-        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
-        server.login(sender_email, sender_password)
+        # Get SMTP connection
+        server = get_email_server()
+        if not server:
+            print(f"⚠️ Could not establish email connection for {brand}")
+            return False
 
-        msg = MIMEMultipart()
-        msg["From"] = sender_email
-        msg["To"] = ", ".join(recipients)
-        msg["Subject"] = f"[{priority}] Complaint - {complaint_id}"
+        config = BRAND_CONFIG.get("customer_support")
+        sender_email = config.get("email")
+        display_name = config.get("display_name", "MG Customer Support")
 
-        body = f"""
-Complaint ID: {complaint_id}
-Customer: {name}
-Brand: {brand}
-Dealership: {dealership}
+        # ===== EMAIL 1: TO CUSTOMER (WITHOUT PRIORITY) =====
+        customer_msg = MIMEMultipart()
+        customer_msg["From"] = f"{display_name} <{sender_email}>"
+        customer_msg["To"] = customer_email
+        customer_msg["Subject"] = f"Complaint #{complaint_id} - {brand}"
 
-Issue:
+        customer_body = f"""Dear Valued Customer,
+
+Thank you for submitting your complaint to MG Motors. We have registered your complaint in our system and our team will look into it with urgency.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COMPLAINT DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Complaint ID:        {complaint_id}
+Customer Name:       {name}
+Customer Email:      {customer_email}
+Brand:               {brand}
+Dealership:          {dealership}
+Date & Time:         {datetime.datetime.now().strftime('%d-%m-%Y %H:%M:%S')}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+YOUR COMPLAINT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 {query}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Please keep your Complaint ID ({complaint_id}) for future reference. 
+
+Our service team will contact you shortly. If you have any urgent concerns, please feel free to reach out to your dealership directly.
+
+Best Regards,
+MG Customer Support Team
+customercomplaint@mgcars.co.in
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+This is an automated email from the Complaint Management System.
 """
 
-        msg.attach(MIMEText(body, "plain"))
+        customer_msg.attach(MIMEText(customer_body, "plain"))
 
-        server.sendmail(sender_email, recipients, msg.as_string())
-        server.quit()
+        # Send email to customer
+        server.sendmail(sender_email, customer_email, customer_msg.as_string())
+        print(f"✅ Customer email sent to: {customer_email}")
 
-        print("✅ Email sent")
+        # ===== EMAIL 2: TO SERVICE HEAD (WITH PRIORITY) =====
+        if dept_email and dept_email != "abc":
+            service_msg = MIMEMultipart()
+            service_msg["From"] = f"{display_name} <{sender_email}>"
+            service_msg["To"] = dept_email
+            service_msg["Subject"] = f"[{priority.upper()}] Complaint #{complaint_id} - {brand}"
 
+            service_body = f"""Service Team,
+
+A new complaint has been received and requires your attention.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COMPLAINT DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Complaint ID:        {complaint_id}
+Customer Name:       {name}
+Customer Email:      {customer_email}
+Brand:               {brand}
+Dealership:          {dealership}
+Priority Level:      {priority.upper()}
+Date & Time:         {datetime.datetime.now().strftime('%d-%m-%Y %H:%M:%S')}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COMPLAINT DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+{query}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Please address this complaint as per the priority level indicated.
+
+MG Customer Support Team
+customercomplaint@mgcars.co.in
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+This is an automated email from the Complaint Management System.
+"""
+
+            service_msg.attach(MIMEText(service_body, "plain"))
+
+            # Send email to service head
+            server.sendmail(sender_email, dept_email, service_msg.as_string())
+            print(f"✅ Service head email sent to: {dept_email}")
+        else:
+            print(f"⚠️ No valid service head email for {dealership}")
+
+        print(f"✅ All emails sent successfully!")
+        return True
+
+    except smtplib.SMTPException as e:
+        print(f"❌ SMTP ERROR: {e}")
+        # Reset connection on error to retry next time
+        global smtp_connection
+        smtp_connection = None
+        return False
     except Exception as e:
-        print("❌ EMAIL ERROR:", e)
+        print(f"❌ EMAIL ERROR: {e}")
+        return False
 # RUN
 
 if __name__ == "__main__":

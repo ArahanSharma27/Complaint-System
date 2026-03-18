@@ -1,15 +1,187 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Complaint Submitted</title>
+    <title>Complaint Submitted Successfully</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .success-container {
+            background: white;
+            padding: 50px;
+            border-radius: 10px;
+            box-shadow: 0 15px 50px rgba(0,0,0,0.2);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .success-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+            animation: scaleIn 0.5s ease-out;
+        }
+
+        @keyframes scaleIn {
+            from {
+                transform: scale(0);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        h1 {
+            color: #27ae60;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .info-value {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .email-status {
+            margin: 25px 0;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .email-success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .email-warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+
+        a, button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            transition: transform 0.2s;
+        }
+
+        a:hover, button:hover {
+            transform: translateY(-2px);
+        }
+
+        .primary-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .secondary-btn {
+            background: #f0f0f0;
+            color: #333;
+            border: 1px solid #ddd;
+        }
+
+        .secondary-btn:hover {
+            background: #e0e0e0;
+        }
+    </style>
 </head>
 <body>
-    <h2>Complaint Submitted Successfully!</h2>
 
-    <p><strong>Complaint ID:</strong> {{ complaint_id }}</p>
-    <p><strong>Status:</strong> {{ status }}</p>
-    <p><strong>Submitted At:</strong> {{ timestamp }}</p>
+<div class="success-container">
+    <div class="success-icon">✓</div>
+    
+    <h1>Complaint Submitted Successfully!</h1>
+    <p class="subtitle">Your complaint has been recorded and will be processed shortly.</p>
 
-    <a href="/">Submit Another Complaint</a>
+    <div class="info-box">
+        <div class="info-row">
+            <span class="info-label">Complaint ID:</span>
+            <span class="info-value">{{ complaint_id }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Status:</span>
+            <span class="info-value">{{ status }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Submitted At:</span>
+            <span class="info-value">{{ timestamp }}</span>
+        </div>
+    </div>
+
+    {% if email_sent %}
+    <div class="email-status email-success">
+        ✓ A confirmation email has been sent to you and the dealership team.
+    </div>
+    {% else %}
+    <div class="email-status email-warning">
+        ⚠ Your complaint has been saved. The dealership will receive notification shortly.
+    </div>
+    {% endif %}
+
+    <div class="button-group">
+        <a href="/" class="primary-btn">Submit Another Complaint</a>
+        <button onclick="window.print()" class="secondary-btn">Print Confirmation</button>
+    </div>
+</div>
+
 </body>
 </html>
